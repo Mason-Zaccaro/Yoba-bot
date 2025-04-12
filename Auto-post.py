@@ -6,6 +6,7 @@ import pytz
 from datetime import datetime, timedelta
 from telethon import TelegramClient
 from telethon.errors import RPCError
+from PIL import Image
 from dotenv import load_dotenv
 load_dotenv()  # ← Эта строка обязательна!
 
@@ -124,28 +125,30 @@ def create_slots():
 async def process_post(client, art_file, slot_time, caption):
     art_path = os.path.join(ART_FOLDER, art_file)
     try:
+        # Изменение размера изображения перед отправкой
+        with Image.open(art_path) as img:
+            img.thumbnail((1280, 1280))  # Максимальный размер для Telegram
+            temp_path = os.path.join(ART_FOLDER, "temp_" + art_file)
+            img.save(temp_path)
+
         log(f"Отправка {art_file} на {slot_time.strftime('%d.%m.%Y %H:%M')}...")
 
         await client.send_file(
             entity=CHANNEL,
-            file=art_path,
+            file=temp_path,  # Используем временный файл
             caption=caption,
             schedule=slot_time
         )
 
-        # Перемещение файла
+        # Удаляем временный файл и перемещаем оригинал
+        os.remove(temp_path)
         shutil.move(art_path, os.path.join(USED_FOLDER, art_file))
         log(f"Арт перемещен в {USED_FOLDER}", "success")
-
         return True
 
-    except RPCError as e:
-        log(f"Ошибка Telegram API: {e}", "error")
-        return False
     except Exception as e:
-        log(f"Критическая ошибка: {type(e).__name__} - {str(e)}", "error")
+        log(f"Ошибка обработки {art_file}: {str(e)}", "error")
         return False
-
 
 async def main():
     log("=== ЗАПУСК ПРОГРАММЫ ===")
@@ -205,6 +208,21 @@ async def main():
             if art_index >= len(art_files):
                 log("Все арты распределены!", "success")
                 break
+
+            art_file = art_files[art_index]
+
+            # Пропуск временных/битых файлов
+            if art_file.startswith("temp_"):
+                art_index += 1
+                continue
+
+            try:
+                with Image.open(os.path.join(ART_FOLDER, art_file)) as img:
+                    img.verify()
+            except Exception as e:
+                log(f"Поврежденный файл {art_file}: {e}", "error")
+                art_index += 1
+                continue
 
             art_file = art_files[art_index]
             log(f"Обработка: {art_file} → {slot_time.strftime('%d.%m.%Y %H:%M')}")
