@@ -2,3 +2,6 @@
 .env.local
 *.env
 *.session
+.venv/
+__pycache__/
+*.pyc
