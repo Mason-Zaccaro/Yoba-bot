@@ -8,7 +8,7 @@ from datetime import datetime
 # ========== КОНФИГУРАЦИЯ ==========
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # Корень проекта Yoba-bot
 JSON_PATH = os.path.join(BASE_DIR, 'data', 'json', 'images.json')
-IMAGE_DIR = r"D:\Yoba\Images\Rei"  # Папка для анализа
+IMAGE_DIR = r"D:\Yoba\Images"  # Папка для анализа
 DESCRIPTION_DEFAULT = "#defolt_art"
 # ===================================
 
