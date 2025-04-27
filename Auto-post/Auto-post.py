@@ -1,79 +1,47 @@
 import os
 import json
 import shutil
+import time
 import asyncio
-import pytz
 from datetime import datetime, timedelta
 from telethon import TelegramClient
-from PIL import Image
 from dotenv import load_dotenv
+from config import (TIMEZONE, SCHEDULE_TEMPLATE, CAPTIONS,
+                    FORCED_POST_RULES, SCHEDULE_DAYS, DELAY_BETWEEN)
 
+# Загрузка переменных и путей
 load_dotenv()
+BASE_DIR      = os.getenv('BASE_DIR', os.getcwd())
+DATA_DIR      = os.path.join(BASE_DIR, 'data', 'json')
+ART_FOLDER    = os.getenv('CHECK_IMAGES_FOLDER', os.path.join(BASE_DIR, 'Check-Images'))
+USED_FOLDER   = os.getenv('POST_IMAGES_FOLDER', os.path.join(BASE_DIR, 'Post-Images'))
 
-# ========== НАСТРОЙКИ ==========
-BASE_DIR       = os.path.dirname(os.path.abspath(__file__))
-DATA_JSON_DIR  = os.path.join(BASE_DIR, 'data', 'json')
+# JSON-файлы
+IMAGES_JSON   = os.path.join(DATA_DIR, 'images.json')
+SCHEDULE_JSON = os.path.join(DATA_DIR, 'schedule.json')
+POSTED_JSON   = os.path.join(DATA_DIR, 'posted_images.json')
 
-IMAGES_JSON    = os.path.join(DATA_JSON_DIR, 'images.json')
-SCHEDULE_JSON  = os.path.join(DATA_JSON_DIR, 'schedule.json')
+# TelegramClient
+api_id        = int(os.getenv('API_ID'))
+api_hash      = os.getenv('API_HASH')
+channel       = os.getenv('CHANNEL')
+client        = TelegramClient(os.path.join(BASE_DIR, 'data', '.session', 'session'), api_id, api_hash)
 
-ART_FOLDER     = os.getenv('ART_FOLDER',   'D:/Yoba/New')
-USED_FOLDER    = os.getenv('USED_FOLDER',  'D:/Yoba/Used')
-SESSION_FILE   = os.getenv('SESSION_FILE', 'new_session')
-CHANNEL        = os.getenv('CHANNEL',      '@test_yoba')
+# Логирование
+import pytz
 
-TIMEZONE       = pytz.timezone('Europe/Moscow')
-SCHEDULE_DAYS  = 2
-DELAY_BETWEEN  = 5  # сек.
-# =============================== #
-
-# ========== Данные для TelegramClient ========== #
-API_ID = os.getenv('API_ID')
-API_HASH = os.getenv('API_HASH')
-SESSION_FILE = os.getenv('SESSION_FILE')
-PHONE_NUMBER = os.getenv('PHONE_NUMBER')
-# =============================== #
-
-# ========== Расписание постов ========== #
-SCHEDULE_TEMPLATE = {
-    'Monday':    ['00:20', '06:59', '19:59', '21:59', '23:29'],
-    'Tuesday':   ['00:20', '06:59', '19:59', '23:29'],
-    'Wednesday': ['00:20', '06:59', '19:59', '21:59', '23:29'],
-    'Thursday':  ['00:20', '06:59', '19:59', '23:29'],
-    'Friday':    ['00:20', '06:59', '19:59', '21:59', '23:29'],
-    'Saturday':  ['00:20', '19:59', '21:59', '23:29'],
-    'Sunday':    ['00:20', '08:59', '19:59', '23:29'],
-}
-# =============================== #
-
-# ========== Подписи к постам ========== #
-CAPTIONS = {
-    '06:59': 'Доброе утро, Йобангелион!',
-    '08:59': 'Доброе утро, Йобангелион!',
-    '23:29': 'Спокойной ночи, Йобангелион'
-}
-# =============================== #
-
-# ========== Жёсткие правила ========== #
-# в формате { (день_недели, "HH:MM"): "#Misato_Katsuragi", ... }
-FORCED_POST_RULES = {
-    ('Friday', '19:59'): '#Misato_Katsuragi',
-    # пример: ('Monday','06:59'): '#Rei_Ayanami',
-}
-# =============================== #
-
-def log(message, status="info"):
-    colors = { "info":"\033[94m", "success":"\033[92m",
-               "error":"\033[91m","warning":"\033[93m","end":"\033[0m" }
+def log(msg, level='info'):
     ts = datetime.now(TIMEZONE).strftime('%Y-%m-%d %H:%M:%S')
-    print(f"{colors[status]}[{ts}] {message}{colors['end']}")
+    print(f"[{ts}] [{level.upper():7}] {msg}")
 
-def load_json(path, default):
+# JSON-утилиты
+def load_json(path, default=None):
+    if default is None: default = {}
     if not os.path.exists(path): return default
     try:
         with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except json.JSONDecodeError:
+    except:
         return default
 
 def save_json(path, data):
@@ -81,9 +49,11 @@ def save_json(path, data):
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+# Создание слотов в соответствии с шаблоном
+
 def create_slots(schedule_data):
     now = datetime.now(TIMEZONE)
-    log(f"Текущее время: {now}", "warning")
+    log(f"Текущее время: {now}", 'info')
     start = now.date()
     end   = start + timedelta(days=SCHEDULE_DAYS)
     slots = []
@@ -99,72 +69,69 @@ def create_slots(schedule_data):
             slots.append((slot, caption))
         d += timedelta(days=1)
     slots.sort(key=lambda x: x[0])
-    log(f"Создано слотов: {len(slots)}", "success")
+    log(f"Создано слотов: {len(slots)}", 'success')
     return slots
 
-def select_art_for_slot(images_data, slot_time, last_person):
+# Выбор арта на слот
+
+def select_art(images_data, slot_time, last_person):
     weekday, time_str = slot_time.strftime('%A'), slot_time.strftime('%H:%M')
     forced = FORCED_POST_RULES.get((weekday, time_str))
     if forced:
-        c = [f for f,v in images_data.items() if v['posted']==0 and v['person']==forced]
-        if c: return c[0]
-        log(f"⚠ нет forced‑арта {forced}", "warning")
-    c = [f for f,v in images_data.items() if v['posted']==0 and v['person']!=last_person]
-    return c[0] if c else None
+        candidates = [f for f,v in images_data.items() if v['posted']==0 and v['person']==forced]
+        if candidates:
+            return candidates[0]
+        log(f"Нет forced-арта для {forced}", 'warning')
+    # обычный выбор: не тот же персонаж подряд
+    pool = [f for f,v in images_data.items() if v['posted']==0 and v['person']!=last_person]
+    return pool[0] if pool else None
 
-async def process_post(client, art, slot_time, caption):
-    src = os.path.join(ART_FOLDER, art)
-    try:
-        with Image.open(src) as img:
-            img.thumbnail((1280,1280))
-            tmp = os.path.join(ART_FOLDER, "tmp_"+art)
-            img.save(tmp)
-        await client.send_file(CHANNEL, tmp, caption=caption, schedule=slot_time)
-        os.remove(tmp)
-        shutil.move(src, os.path.join(USED_FOLDER, art))
-        log(f"{art} → запланирован", "success")
-        return True
-    except Exception as e:
-        log(f"Ошибка post {art}: {e}", "error")
-        return False
+# Постинг и финализация
 
-async def main():
-    os.makedirs(USED_FOLDER, exist_ok=True)
-
-    images_data   = load_json(IMAGES_JSON,   {})
+async def run_post_flow():
+    images_data   = load_json(IMAGES_JSON, {})
     schedule_data = load_json(SCHEDULE_JSON, {})
+    posted_data   = load_json(POSTED_JSON, {})
 
     slots = create_slots(schedule_data)
-    log(f"Всего слотов: {len(slots)}", "info")
+    last_person = None
 
-    async with TelegramClient(SESSION_FILE, API_ID, API_HASH) as client:
+    async with client:
         if not await client.is_user_authorized():
-            await client.start(PHONE_NUMBER)
+            await client.start()
 
-        last_person = None
-        for slot, cap in slots:
-            art = select_art_for_slot(images_data, slot, last_person)
+        for slot, caption in slots:
+            art = select_art(images_data, slot, last_person)
             if not art:
-                log("🚨 Арты закончились", "warning")
+                log("Арты закончились", 'error')
                 break
 
-            if await process_post(client, art, slot, cap):
-                p = images_data[art]['person']
-                images_data[art].update({
-                    'posted':    1,
-                    'post_time': slot.isoformat(),
-                    'caption':   cap
-                })
-                schedule_data[slot.isoformat()] = {'file': art, 'caption': cap}
-                last_person = p
+            # Отправка
+            await client.send_file(channel,
+                                   os.path.join(ART_FOLDER, art),
+                                   caption=caption,
+                                   schedule=slot)
+            log(f"Запланировано: {art} -> {slot}", 'success')
 
-                save_json(IMAGES_JSON,   images_data)
-                save_json(SCHEDULE_JSON, schedule_data)
+            # Обновление данных
+            data = images_data[art]
+            data.update({'posted':1, 'post_time':slot.isoformat(), 'caption':caption})
+            schedule_data[slot.isoformat()] = {'file': art, 'caption': caption, 'person': data['person']}
+            posted_data[art] = data
+            del images_data[art]
+
+            save_json(IMAGES_JSON, images_data)
+            save_json(SCHEDULE_JSON, schedule_data)
+            save_json(POSTED_JSON, posted_data)
+
+            # Архивация файла
+            os.makedirs(USED_FOLDER, exist_ok=True)
+            shutil.move(os.path.join(ART_FOLDER, art), os.path.join(USED_FOLDER, art))
+            last_person = data['person']
 
             await asyncio.sleep(DELAY_BETWEEN)
 
-    total = sum(1 for v in images_data.values() if v['posted']==1)
-    log(f"Готово! Всего запланировано: {total}", "success")
+    log(f"Готово! Всего запланировано: {len(posted_data)}", 'info')
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(run_post_flow())
