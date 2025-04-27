@@ -1,18 +1,19 @@
-import torch
-import clip
 import os
 import json
+import shutil
+from dotenv import load_dotenv
+import clip
 from PIL import Image
-from datetime import datetime
+import torch
 
-# ========== КОНФИГУРАЦИЯ ==========
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # Корень проекта Yoba-bot
+# Загрузка конфигов
+load_dotenv()
+BASE_DIR = os.getenv('BASE_DIR', os.getcwd())
+IMAGES_FOLDER = os.getenv('IMAGES_FOLDER', os.path.join(BASE_DIR, 'New-Images'))
+CHECK_FOLDER = os.getenv('CHECK_IMAGES_FOLDER', os.path.join(BASE_DIR, 'Check-Images'))
 JSON_PATH = os.path.join(BASE_DIR, 'data', 'json', 'images.json')
-IMAGE_DIR = r"D:\Yoba\Images"  # Папка для анализа
-DESCRIPTION_DEFAULT = "#defolt_art"
-# ===================================
 
-# Настройка модели CLIP
+# Подготовка модели
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, preprocess = clip.load("ViT-B/32", device=device)
 
@@ -26,84 +27,49 @@ character_labels = {
     "#Mari_Makinami": "Mari Makinami from Evangelion, brown long hair, red glasses, pink plugsuit"
 }
 
-def load_json_data():
-    """Загрузка и подготовка JSON данных"""
-    if os.path.exists(JSON_PATH):
-        with open(JSON_PATH, 'r', encoding='utf-8') as f:
-            try:
-                return json.load(f)
-            except json.JSONDecodeError:
-                return {}
-    return {}
+text_inputs = torch.cat([clip.tokenize(desc) for desc in character_labels.values()]).to(device)
 
+# Загрузка существующего JSON
+with open(JSON_PATH, 'r', encoding='utf-8') as f:
+    images_data = json.load(f)
 
-def save_json_data(data):
-    """Сохранение обновленных данных в JSON"""
-    os.makedirs(os.path.dirname(JSON_PATH), exist_ok=True)
-    with open(JSON_PATH, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+# Обработка каждого файла
+for fname in os.listdir(IMAGES_FOLDER):
+    if not fname.lower().endswith(('.png', '.jpg', '.jpeg')):
+        continue
+    full_path = os.path.join(IMAGES_FOLDER, fname)
+    if fname not in images_data:
+        # Новая запись
+        images_data[fname] = {
+            "person": "",
+            "description": "",
+            "posted": 0,
+            "post_time": None,
+            "caption": ""
+        }
+    # Пропускаем уже проанализированные
+    if images_data[fname]["person"]:
+        continue
 
-
-def process_images():
-    """Основной процесс анализа и обновления данных"""
-    # Загрузка данных
-    json_data = load_json_data()
-
-    # Подготовка модели
-    text_descriptions = list(character_labels.values())
-    text_inputs = clip.tokenize(text_descriptions).to(device)
+    # CLIP-анализ
+    image = preprocess(Image.open(full_path)).unsqueeze(0).to(device)
     with torch.no_grad():
+        image_features = model.encode_image(image)
         text_features = model.encode_text(text_inputs)
+        logits = (100.0 * image_features @ text_features.T).softmax(dim=-1)
+        value, index = logits[0].max(0)
+    chosen = list(character_labels.keys())[index]
+    images_data[fname]["person"] = chosen
 
-    # Обработка изображений
-    for img_path in get_image_files():
-        try:
-            filename = os.path.basename(img_path)
+    # Заполнение description по умолчанию
+    if not images_data[fname]["description"]:
+        images_data[fname]["description"] = "#defolt"
 
-            # Если файл еще не в JSON
-            if filename not in json_data:
-                json_data[filename] = {
-                    "person": "",
-                    "description": DESCRIPTION_DEFAULT,
-                    "posted": 0,
-                    "post_time": None,
-                    "caption": ""
-                }
+    # Перемещение обработанного файла
+    os.makedirs(CHECK_FOLDER, exist_ok=True)
+    shutil.move(full_path, os.path.join(CHECK_FOLDER, fname))
+    print(f"Processed and moved: {fname} -> Check-Images, person={chosen}")
 
-            # Анализ изображения
-            with Image.open(img_path) as img:
-                image = preprocess(img).unsqueeze(0).to(device)
-
-            with torch.no_grad():
-                image_features = model.encode_image(image)
-                similarity = (image_features @ text_features.T) * model.logit_scale.exp()
-                probs = similarity.softmax(dim=-1).cpu().numpy()[0]
-
-            # Определение персонажа
-            max_prob_idx = probs.argmax()
-            character_tag = list(character_labels.keys())[max_prob_idx]
-
-            # Обновление данных
-            if json_data[filename]["person"] != character_tag:
-                json_data[filename]["person"] = character_tag
-                print(f"Обновлено: {filename} -> {character_tag}")
-
-        except Exception as e:
-            print(f"Ошибка обработки {filename}: {str(e)}")
-
-    # Сохранение результатов
-    save_json_data(json_data)
-
-
-def get_image_files():
-    """Получение списка изображений для обработки"""
-    extensions = ('.png', '.jpg', '.jpeg', '.webp')
-    return [
-        os.path.join(IMAGE_DIR, f)
-        for f in os.listdir(IMAGE_DIR)
-        if os.path.splitext(f)[1].lower() in extensions
-    ]
-
-if __name__ == '__main__':
-    process_images()
-    print(f"\nАнализ завершен. Данные сохранены в: {JSON_PATH}")
+# Сохранение JSON
+with open(JSON_PATH, 'w', encoding='utf-8') as f:
+    json.dump(images_data, f, ensure_ascii=False, indent=4)
