@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Общие настройки
-BASE_DIR      = os.getenv('BASE_DIR', os.getcwd())
-TIMEZONE      = pytz.timezone(os.getenv('TIMEZONE', 'Europe/Moscow'))
+BASE_DIR = os.getenv('BASE_DIR', os.getcwd())
+TIMEZONE = pytz.timezone(os.getenv('TIMEZONE', 'Europe/Moscow'))
 SCHEDULE_DAYS = int(os.getenv('SCHEDULE_DAYS', 2))
 DELAY_BETWEEN = int(os.getenv('DELAY_BETWEEN', 5))
 
@@ -32,5 +32,6 @@ CAPTIONS = {
 # ключ: (день_недели, 'HH:MM'), значение: тег персонажа
 FORCED_POST_RULES = {
     ('Friday', '19:59'): '#Misato_Katsuragi',
+    ('Sunday', '19:59'): '#Shinji_Ikari',
     # пример: ('Monday','06:59'): '#Rei_Ayanami',
 }
