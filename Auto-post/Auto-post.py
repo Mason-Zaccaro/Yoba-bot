@@ -6,8 +6,12 @@ import asyncio
 from datetime import datetime, timedelta
 from telethon import TelegramClient
 from dotenv import load_dotenv
-from config import (TIMEZONE, SCHEDULE_TEMPLATE, CAPTIONS,
-                    FORCED_POST_RULES, SCHEDULE_DAYS, DELAY_BETWEEN)
+import sys
+# Добавляем корень проекта в PYTHONPATH, чтобы найти пакет config
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, root_dir)
+from config.config import (TIMEZONE, SCHEDULE_TEMPLATE, CAPTIONS,
+                           FORCED_POST_RULES, SCHEDULE_DAYS, DELAY_BETWEEN)
 
 # Загрузка переменных и путей
 load_dotenv()
