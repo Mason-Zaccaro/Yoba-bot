@@ -35,7 +35,7 @@ with open(JSON_PATH, 'r', encoding='utf-8') as f:
 
 # Обработка каждого файла
 for fname in os.listdir(IMAGES_FOLDER):
-    if not fname.lower().endswith(('.png', '.jpg', '.jpeg')):
+    if not fname.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
         continue
     full_path = os.path.join(IMAGES_FOLDER, fname)
     if fname not in images_data:

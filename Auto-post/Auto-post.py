@@ -10,8 +10,7 @@ import sys
 # Добавляем корень проекта в PYTHONPATH, чтобы найти пакет config
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, root_dir)
-from config.config import (TIMEZONE, SCHEDULE_TEMPLATE, CAPTIONS,
-                           FORCED_POST_RULES, SCHEDULE_DAYS, DELAY_BETWEEN)
+from config.config import (TIMEZONE, SCHEDULE_TEMPLATE, CAPTIONS, FORCED_POST_RULES, FORCED_CAPTIONS, SCHEDULE_DAYS, DELAY_BETWEEN)
 
 # Загрузка переменных и путей
 load_dotenv()
@@ -69,7 +68,12 @@ def create_slots(schedule_data):
             slot = TIMEZONE.localize(datetime.combine(d, tm))
             if slot <= now or slot.isoformat() in schedule_data:
                 continue
+            # стандартная подпись
             caption = CAPTIONS.get(t, "")
+            # принудительная подпись из конфига
+            cap_forced = FORCED_CAPTIONS.get((day, t))
+            if cap_forced:
+                caption = cap_forced
             slots.append((slot, caption))
         d += timedelta(days=1)
     slots.sort(key=lambda x: x[0])
