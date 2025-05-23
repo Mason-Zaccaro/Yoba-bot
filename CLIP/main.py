@@ -19,12 +19,12 @@ model, preprocess = clip.load("ViT-B/32", device=device)
 
 # Персонажи для распознавания
 character_labels = {
-    "#Rei_Ayanami": "Rei Ayanami from Evangelion, short pale blue hair, red eyes, white plugsuit",
-    "#Misato_Katsuragi": "Misato Katsuragi from Evangelion, purple hair, red jacket over black dress, silver cross necklace",
-    "#Asuka_Langley": "Asuka Langley Soryu from Evangelion, long orange hair, blue eyes, red plugsuit",
-    "#Shinji_Ikari": "Shinji Ikari from Evangelion, short brown hair, blue and white plugsuit",
-    "#Ritsuko_Akagi": "Ritsuko Akagi from Evangelion, blonde short hair, white lab coat",
-    "#Mari_Makinami": "Mari Makinami from Evangelion, brown long hair, red glasses, pink plugsuit"
+    "#Shinji_Ikari": "Shinji Ikari from Evangelion, short brown hair, blue eyes, blue and white plugsuit, sometimes with school uniform: 'white shirt, dark pants'",
+    "#Rei_Ayanami": "Rei Ayanami from Evangelion, short pale blue hair, red eyes, white plugsuit, sometimes in school uniform: 'white blouse, dark-blue skirt, red ribbon'",
+    "#Asuka_Langley": "Asuka Langley Soryu from Evangelion, long orange hair, blue eyes, red plugsuit, sometimes in school uniform: 'white blouse, dark-blue skirt, red ribbon'",
+    "#Misato_Katsuragi": "Misato Katsuragi from Evangelion, long purple hair, red jacket over black dress, silver cross necklace, sometimes: 'only black jacket, silver cross necklace' sometimes: 'sandy topic, short denim shorts', sometimes: 'golden beer can'",
+    "#Ritsuko_Akagi": "Ritsuko Akagi from Evangelion, blonde short hair, mole under the eye, white lab coat, sometimes: 'glasses'",
+    "#Mari_Makinami": "Mari Makinami from Evangelion, brown long hair, red glasses, pink plugsuit, sometimes with school uniform: white shirt, plaid red skirt"
 }
 
 text_inputs = torch.cat([clip.tokenize(desc) for desc in character_labels.values()]).to(device)
