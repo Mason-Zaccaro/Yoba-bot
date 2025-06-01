@@ -49,10 +49,11 @@ class FeatureBasedCLIP:
 
         # Веса для разных типов характеристик
         self.feature_weights = {
-            FeatureType.HAIR_COLOR: 0.55,
-            FeatureType.HAIR_STYLE: 0.45,
+            FeatureType.HAIR_COLOR: 0.45,
             FeatureType.EYE_COLOR: 0.35,
+            FeatureType.HAIR_STYLE: 0.25,
             FeatureType.BODY_TYPE: 0.03,
+            FeatureType.UNIQUE_FEATURES: 0.01,
             FeatureType.CLOTHING: 0.01,
             FeatureType.ACCESSORIES: 0.01
         }
@@ -70,21 +71,21 @@ class FeatureBasedCLIP:
         asuka_features = [
             CharacterFeature(
                 FeatureType.HAIR_COLOR,
-                "bright orange red hair, auburn hair, ginger hair",
+                "bright orange red hair",
                 self.feature_weights[FeatureType.HAIR_COLOR],
                 ["brown hair", "black hair", "blue hair", "purple hair"]
             ),
             CharacterFeature(
                 FeatureType.HAIR_STYLE,
-                "long hair with twin tails, pigtails, hair clips",
+                "long hair with twin tails, pigtails, hair red clips",
                 self.feature_weights[FeatureType.HAIR_STYLE],
-                ["short hair", "ponytail", "straight hair"]
+                ["short hair"]
             ),
             CharacterFeature(
                 FeatureType.EYE_COLOR,
                 "blue eyes, bright blue eyes",
                 self.feature_weights[FeatureType.EYE_COLOR],
-                ["brown eyes", "red eyes", "green eyes"]
+                ["red eyes"]
             )
         ]
 
@@ -102,7 +103,7 @@ class FeatureBasedCLIP:
                 FeatureType.HAIR_STYLE,
                 "short bob hair, straight short hair",
                 self.feature_weights[FeatureType.HAIR_STYLE],
-                ["long hair", "pigtails", "curly hair"]
+                ["pigtails"]
             ),
             CharacterFeature(
                 FeatureType.EYE_COLOR,
@@ -126,18 +127,12 @@ class FeatureBasedCLIP:
                 FeatureType.HAIR_STYLE,
                 "long wavy hair, curly hair, messy hair",
                 self.feature_weights[FeatureType.HAIR_STYLE],
-                ["straight hair", "short hair", "pigtails"]
-            ),
-            CharacterFeature(
-                FeatureType.EYE_COLOR,
-                "red eyes behind glasses, crimson eyes with glasses",
-                self.feature_weights[FeatureType.EYE_COLOR],
-                ["blue eyes", "brown eyes", "green eyes"]
+                ["straight hair", "short hair"]
             ),
             CharacterFeature(
                 FeatureType.ACCESSORIES,
-                "round glasses, eyeglasses",
-                self.feature_weights[FeatureType.ACCESSORIES] * 15,  # Сильно увеличиваем вес для уникального аксессуара
+                "red glasses",
+                self.feature_weights[FeatureType.ACCESSORIES] * 10,  # Сильно увеличиваем вес для уникального аксессуара
                 []
             )
         ]
