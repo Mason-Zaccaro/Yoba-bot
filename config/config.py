@@ -7,7 +7,7 @@ load_dotenv()
 # Общие настройки
 BASE_DIR = os.getenv('BASE_DIR', os.getcwd())
 TIMEZONE = pytz.timezone(os.getenv('TIMEZONE', 'Europe/Moscow'))
-SCHEDULE_DAYS = int(os.getenv('SCHEDULE_DAYS', 2))
+SCHEDULE_DAYS = int(os.getenv('SCHEDULE_DAYS', 30))
 DELAY_BETWEEN = int(os.getenv('DELAY_BETWEEN', 5))
 
 # Расписание постов по дням недели
